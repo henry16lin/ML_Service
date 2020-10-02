@@ -1,5 +1,5 @@
 # ML_model_service
-it's a training pipline of xgboost  
+A ML pipeline for basic XGBoost model
 
 ## Set up  
 pip install shap sklearn  
