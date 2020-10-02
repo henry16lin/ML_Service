@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>loading</title>
+</head>
+<body>
+	<p></p>
+	<center>
+	<h2>Calculating...</h2>
+	<p>time: {{ time_str }}</p>
+	<p>token: {{ uid }}</p>
+	<p></p>
+	
+	<img src="{{ loading_img }}" alt="detect result" width="25%" height="25%">
+	</center>
+	<meta http-equiv = "refresh" content = "1; url = /result/{{ time_str }}/{{ uid }}" />
+	<p></p>
+</body>
+</html>

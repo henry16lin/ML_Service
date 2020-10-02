@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>upload</title>
+</head>
+<body>
+<img src= "/static/home.png",width="950" height="750">
+<h1>Upload .csv file!</h1>
+<hr>
+
+<form method=post enctype=multipart/form-data>
+    <input type=file name=file>
+    <input type="submit" name="submit_button" value="submit">
+</form>
+<p></p>
+<p>csv format:</p>
+<img src= "/static/upload_format.jpg">
+<a href="/get-csv"> download csv</a>
+<p>the missing value rule is:</p>
+<pre id="json">{{na_rule}}</pre>
+<p></p>
+<br>
+<br>
+<br>
+<p></p>
+
+
+</body>
+</html>
