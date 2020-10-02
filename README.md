@@ -11,4 +11,6 @@ python main.py --train --y_col label --data_dir ./path/to/file.csv
 python main.py  
 then it will ask you data path for prediction.  
 
-
+## web service:  
+python flask_app.py  
+  
