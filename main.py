@@ -7,6 +7,7 @@ import time
 import argparse
 import shap
 import pickle
+import json
 
 from sklearn.model_selection import train_test_split,GridSearchCV
 
@@ -153,6 +154,7 @@ def inference(data, preprocessor, model):
         
         #plt.figure()
         local_explain_plot = shap.force_plot(explainer.expected_value,shap_values[0,:],data_encoder.iloc[0,:],show=False,matplotlib=True)
+        
         plt.title
         plt.show()
         local_explain_plot.savefig("shap_importance.png",bbox_inches="tight")
@@ -163,7 +165,8 @@ def inference(data, preprocessor, model):
     inference_start = time.time()
     y_preds = model.predict(data_encoder)
     preds_prob = model.predict_proba(data_encoder)
-    
+    print('predict probability:')
+    print(preds_prob)
     y_hat = np.expand_dims(y_preds,axis=0)
     pred_result = np.concatenate((y_hat.T,preds_prob),axis=1)
     
@@ -229,16 +232,30 @@ if __name__ == '__main__':
             normalLogger.debug('fail to load model...check model path or do training model')
             assert False, 'fail to load model'
         
+        
+        
         # load preprocessor
         with open('./model_data/preprocessor.pkl', 'rb') as pkl:
             preprocessor = pickle.load(pkl)
         
         
+        # load the latest na rule and replace original
+        try:
+            with open(args.na_rule, 'r') as json_file:
+                na_rule = json.load(json_file)
+        except:
+            na_rule = {}
+        
+        
+        if na_rule:
+            preprocessor.na_rule = na_rule
+        
+        
+        
         while True:
             # load data
             data_dir = input("input the data(csv) path:")
-            print(data_dir)
-            print(type(data_dir))
+            
             data = pd.read_csv(data_dir)
             normalLogger.debug('successfuly load data')
             

@@ -47,7 +47,8 @@ class preprocess():
         
         
         #save one data as reference for test data align onehot encoder
-        self.align_data = data_encoder[0:1]    
+        self.align_data = data_encoder[0:1]
+        #self.align_data.to_csv('./model_data/align_example.csv',index=False)
         
         
         
