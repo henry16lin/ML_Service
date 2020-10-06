@@ -237,13 +237,14 @@ if __name__ == '__main__':
     cleaner1.start()
     cleaner2.start()
     
+    folder_checker(os.path.join(cwd,'pred_file'))
     
     app.run(
         debug = True,
         host = '0.0.0.0',
         port = 5566,
-        threaded = False
-        #ssl_context = ('./ssl/XXX.crt', './ssl/XXX.key')
+        threaded = False,
+        ssl_context = ('./ssl/XXX.crt', './ssl/XXX.key')
         )
     
     
