@@ -153,10 +153,11 @@ def inference(data, preprocessor, model):
         shap_values = explainer.shap_values(data_encoder)
         
         #plt.figure()
+        plt.switch_backend('agg')
         local_explain_plot = shap.force_plot(explainer.expected_value,shap_values[0,:],data_encoder.iloc[0,:],show=False,matplotlib=True)
         
-        plt.title
-        plt.show()
+        #plt.title
+        #plt.show()
         local_explain_plot.savefig("shap_importance.png",bbox_inches="tight")
         
     
