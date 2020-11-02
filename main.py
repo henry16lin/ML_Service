@@ -8,10 +8,11 @@ import argparse
 import shap
 import pickle
 import json
+import sys
 
 from sklearn.model_selection import train_test_split,GridSearchCV
 
-from sklearn.metrics import roc_auc_score, make_scorer
+from sklearn.metrics import roc_auc_score, make_scorer, recall_score
 from xgboost import XGBClassifier
 from sklearn.metrics import confusion_matrix
 from sklearn.externals import joblib
@@ -20,12 +21,14 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 
 from preprocess import preprocess
+from loss import CustomLoss
 
 plt.style.use('ggplot')
 
 
 
 cwd = os.getcwd()
+abs_path = os.path.realpath(sys.argv[0])
 normalLogger = logging.getLogger('normalLogger')
 
 
@@ -37,7 +40,18 @@ def train(args):
 
     normalLogger.debug('split data into train and test...')
     target, features = data[args.y_col], data.drop([args.y_col], axis=1)
-    X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=0.2,random_state=100)
+    X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=0.2,random_state=33)
+
+    #####
+    X_test['SEPSIS'] = y_test
+    X_test.to_csv('test_set.csv',index=False)
+
+    tmp_fn(X_train)
+    tmp_fn(X_test)
+    X_test.drop(['SEPSIS'],axis=1,inplace=True)
+
+    #X_test.to_csv('after_test_set.csv',index=False)
+    #####
 
     normalLogger.debug('X_train size:'+str(X_train.shape))
     normalLogger.debug('X_test size:'+str(X_test.shape))
@@ -47,7 +61,7 @@ def train(args):
     
     normalLogger.debug('create preprocess from training data...')
     preprocessor = preprocess()
-    preprocessor.fit(X_train)
+    preprocessor.fit(X_train, auto_fill = False)
     X_train_encoder, na_rule, le_dict = preprocessor.transform(X_train)
     
     # save preprocessor to pickle
@@ -58,28 +72,39 @@ def train(args):
     scaler = sum(y_train!=1)/sum(y_train==1)
     #restrict the max scale time
     if sum(y_train!=1)/sum(y_train==1)>100:
-        scaler = 100 #np.floor(np.sqrt(sum(y_train!=1)/sum(y_train==1)))
+        scaler = 100  #np.floor(np.sqrt(sum(y_train!=1)/sum(y_train==1)))
     
-    model =  XGBClassifier(n_estimators=100, n_thread=4,
+    custom_loss = CustomLoss(alpha=scaler)
+
+    model =  XGBClassifier(n_estimators=50, n_jobs=4,
                                                 random_state=100,reg_alpha=1,reg_lambda=2,
                                                 colsample_bytree=0.8,subsample=0.8,
                                                 importance_type='gain',
-                                                scale_pos_weight=scaler)
+                                                scale_pos_weight=scaler
+                                                #objective = custom_loss.focal_loss
+                                                #max_delta_step=1
+                                                )
     
 
-    normalLogger.debug('Hyperparameter tuning with grid search...')
-    scorer = make_scorer(roc_auc_score, greater_is_better=True)
 
-    param_grid = {'xgb__max_depth': [3,4],
-                  'xgb__min_child_weight':[0.5,1],
-                  'xgb__learning_rate':[0.05,0.1]}
+    normalLogger.debug('Hyperparameter tuning with grid search...')
+    #scorer = make_scorer(roc_auc_score, greater_is_better=True)
+    
+    param_grid = {'max_depth': [4,3,2],
+                  'min_child_weight':[0.5, 1],
+                  'learning_rate':[0.01, 0.1],
+                  'gamma':[0,0.1]
+                  }
+    
+    
+
 
     grid_start = time.time()
-    grid = GridSearchCV(estimator=model,cv=3, param_grid=param_grid, scoring=scorer)
+    grid = GridSearchCV(estimator=model,cv=5, n_jobs=-1 , param_grid=param_grid, scoring='f1_micro')
     grid.fit(X_train_encoder, y_train)
     grid_end = time.time()-grid_start
     normalLogger.debug('finish grid search, it took %.5f min'%(grid_end/60))
-
+    #print(grid.cv_results_)
     # save model for future inference
     normalLogger.debug('saving model to ./model_data')
     normalLogger.debug(grid.best_estimator_)
@@ -88,23 +113,24 @@ def train(args):
     normalLogger.debug('saving feature importance')
     feature_importance(X_train_encoder,grid.best_estimator_)
 
-
     #see training performance
     normalLogger.debug('prediction on training set...')
     train_preds = grid.predict(X_train_encoder)
     
-    fpr, tpr, thresholds = metrics.roc_curve(y_train, train_preds, pos_label=1)
-    train_auc = metrics.auc(fpr, tpr)
+
+    train_auc = roc_auc_score(y_train, train_preds)
+    train_recall = recall_score(y_train, train_preds, average=None)
 
     
     normalLogger.debug('compute and save the confusion matrix...')
     train_conf = confusion_matrix(y_train, train_preds)
     
     colormap = sns.diverging_palette(220, 10, as_cmap=True)
+    sns.set(font_scale=1.4)
     plt.figure()
     train_plot = sns.heatmap(train_conf,cmap=colormap,annot=True,cbar=False,fmt='d')
     train_fig = train_plot.get_figure()
-    plt.title('train auc: %.3f' %train_auc) 
+    plt.title('train auc: %.3f, recall:%s' %(train_auc, str(train_recall))) 
     train_fig.savefig("train_confusion.png")
     
     ##### see testset performance #####
@@ -116,19 +142,19 @@ def train(args):
         preprocessor_test = pickle.load(input)
     
     X_test_encoder, _, _ = preprocessor_test.transform(X_test)
-    #X_test_encoder, na_rule, le_dict = preprocessor(X_test,na_rule=na_rule,le_dict=le_dict,train_ind=False)
-    
+
     test_preds = grid.predict(X_test_encoder)
     
     fpr, tpr, thresholds = metrics.roc_curve(y_test, test_preds, pos_label=1)
     test_auc = metrics.auc(fpr,tpr)
-    
+    test_recall = recall_score(y_test, test_preds, average=None)
+
     test_conf = confusion_matrix(y_test, test_preds)
     
     plt.figure()
     test_plot = sns.heatmap(test_conf,cmap=colormap,annot=True,cbar=False,fmt='d')
     test_fig = test_plot.get_figure()
-    plt.title('test auc: %.3f' %test_auc) 
+    plt.title('test auc: %.3f, recall:%s' %(test_auc,str(test_recall)) )
     test_fig.savefig("test_confusion.png")
 
     
@@ -138,7 +164,7 @@ def feature_importance(X_train_encoder,model):
     importance_df = importance_df.sort_values(by=['importance'],ascending=False)
     print(importance_df.head())
     plt.figure()
-    import_plot = importance_df[:np.min([20,importance_df.shape[0]])].plot.bar(x='feature',y='importance',rot=90)
+    import_plot = importance_df[:np.min([25,importance_df.shape[0]])].plot.bar(x='feature',y='importance',rot=90)
     tmp = import_plot.get_figure()
     tmp.savefig("feature_importance.png",bbox_inches="tight")
     
@@ -146,8 +172,10 @@ def feature_importance(X_train_encoder,model):
     
 
 def inference(data, preprocessor, model):
-    data_encoder, na_rule, le_dict = preprocessor.transform(data)
     
+    data_encoder, _, _ = preprocessor.transform(data)
+    data_encoder.to_csv('data_encoder.csv',index=False)
+
     if len(data_encoder)==1:
         explainer = shap.TreeExplainer(model)
         shap_values = explainer.shap_values(data_encoder)
@@ -158,7 +186,7 @@ def inference(data, preprocessor, model):
         
         #plt.title
         #plt.show()
-        local_explain_plot.savefig("shap_importance.png",bbox_inches="tight")
+        local_explain_plot.savefig("shap_importance.png")
         
     
     
@@ -226,7 +254,7 @@ if __name__ == '__main__':
         
         #load model
         try:
-            with open(args.model, 'rb') as f:
+            with open(os.path.join(cwd,'model_data','grid.pkl'), 'rb') as f:
                 model = joblib.load(f)
             normalLogger.debug('successfuly load model')
         except:
@@ -236,10 +264,12 @@ if __name__ == '__main__':
         
         
         # load preprocessor
-        with open('./model_data/preprocessor.pkl', 'rb') as pkl:
+        with open(os.path.join(cwd,'model_data','preprocessor.pkl'), 'rb') as pkl:
             preprocessor = pickle.load(pkl)
         
-        
+        for c in preprocessor.align_data.columns:
+            print(c)
+
         # load the latest na rule and replace original
         try:
             with open(args.na_rule, 'r') as json_file:

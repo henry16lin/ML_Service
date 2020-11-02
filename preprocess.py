@@ -35,33 +35,54 @@ class preprocess():
     
     def fit(self, data, auto_fill=True):
         
+        normalLogger.debug('getting data dtypes...')
+        self.dtype = data.dtypes.to_dict()
+        
+        for k in self.dtype.keys():
+            self.dtype[k] = str(self.dtype[k])
+        print(self.dtype)
+        with open('./model_data/dtype.json', 'w') as outfile:
+            json.dump(self.dtype, outfile)
+        
         normalLogger.debug('fill na')
         data, self.na_rule = self.na_fill(data, self.na_rule, auto_fill=auto_fill)
         
-        normalLogger.debug('column type checking...')
-        data = self.mix_type_checker(data)
-        
-        
+        #normalLogger.debug('column type checking...')
+        #data = self.mix_type_checker(data)
+
         normalLogger.debug('categorical feature encoder...')
         data_encoder, self.le_dict = self.cat_encoder(data)
         
-        
         #save one data as reference for test data align onehot encoder
         self.align_data = data_encoder[0:1]
-        #self.align_data.to_csv('./model_data/align_example.csv',index=False)
         
         
         
     def transform(self, data):
-        normalLogger.debug('fill na')
+        
+        normalLogger.debug('fill na...')
         data, na_rule = self.na_fill(data, self.na_rule, auto_fill=False) #not auto-fill when prediction
+
         
-        normalLogger.debug('column type checking...')
-        data = self.mix_type_checker(data)
+        normalLogger.debug('checking data dtypes...')
+        for c in data.columns:
+            if c in self.dtype.keys():
+                if str(data[c].dtypes) != str( self.dtype[c] ):
+                    normalLogger.debug('-- align %s type from %s to %s' %(c,str(data[c].dtypes),str( self.dtype[c] )) )
+                    data[c] = data[c].astype(str(self.dtype[c]))
         
+
+        #normalLogger.debug('column type checking...')
+        #data = self.mix_type_checker(data)
+        
+        #data.to_csv('before_encoder.csv',index=False)################
         normalLogger.debug('categorical feature encoder...')
         data_encoder,le_dict = self.cat_encoder(data)
         
+        ### see lebel encoder mapping ###
+        #dict(zip(le.classes_, le.transform(le.classes_)))
+        
+        #data_encoder.to_csv('before_align.csv',index=False)###########
         
         normalLogger.debug('align feature with training data')
         _, data_encoder = self.align_data.align(data_encoder, join='left', axis=1, fill_value=0)
@@ -80,20 +101,24 @@ class preprocess():
             for c in data.columns:
                 if sum(data[c].isnull())>0:
                     if c in rule.keys():
-                        df_c[c].fillna(rule[c],inplace=True)
+                        df_c[c].fillna(rule[c],inplace=True,downcast=False)
+                    else:
+                        normalLogger.debug('-- no exists na rule to fill for column %s' %c)
+        else:
+            normalLogger.debug('-- no exists na rule to fill')
         
         if auto_fill:
             for col in fill_col:
                 if data[col].dtypes=='object': #category fill by mode
                     fill_cat = data[col].value_counts().idxmax()
                     rule.update({col:fill_cat})
-                    df_c[col].fillna(fill_cat,inplace=True)
+                    df_c[col].fillna(fill_cat,inplace=True,downcast=False)
         
                 elif data[col].dtypes!='object':#numeric fill by median
                     fill_num = np.nanmedian(data[col])
         
                     rule.update({col:fill_num})
-                    df_c[col].fillna(fill_num,inplace=True)
+                    df_c[col].fillna(fill_num,inplace=True,downcast=False)
             
             #you might want to modify the NA rule, so output json file instead of adding into pipeline
             json_path = os.path.dirname(self.na_rule_path)
@@ -132,7 +157,7 @@ class preprocess():
     
     
     
-    def oneHotEncode2(self, df, le_dict):
+    def oneHotEncode(self, df, le_dict):
         if not le_dict:
             columnsToEncode = list(df.select_dtypes(include=['category','object']))
             train = True;
@@ -145,25 +170,72 @@ class preprocess():
                 le_dict[feature] = preprocessing.LabelEncoder()
             try:
                 if train:
+                    df[feature] = df[feature].astype(str)
                     df[feature] = le_dict[feature].fit_transform(df[feature])
+
                 else:
-                    if df[feature].dtypes != 'object':
+                    if True:#df[feature].dtypes != 'object':
                         df[feature] = df[feature].astype(str)
                     
                     df[feature] = le_dict[feature].transform(df[feature])
                 
                 #print('finish fit transform')
-    
-                df = pd.concat([df,
-                                pd.get_dummies(df[feature],drop_first=True).rename(columns=lambda x: feature + '_' + str(x))], axis=1)
-                #print('finish get dummies and give column name')
+                
+                if len(df) == 1:
+                    df = pd.concat([df,
+                                pd.get_dummies(df[feature],drop_first=False).rename(columns=lambda x: feature + '_' + str(x))], axis=1)
+                else:
+                    df = pd.concat([df,
+                                    pd.get_dummies(df[feature],drop_first=True).rename(columns=lambda x: feature + '_' + str(x))], axis=1)
+                
                 df = df.drop(feature, axis=1)
+
+                normalLogger.debug('-- one-hot encoder for %s'%feature)
+
             except:
-                print('Error encoding '+feature)
+                normalLogger.debug('Error encoding '+feature+' there might be a new category in this feature.')
+                normalLogger.debug(set(df[feature]))
+
                 #df[feature]  = df[feature].convert_objects(convert_numeric='force')
                 df[feature]  = df[feature].apply(pd.to_numeric, errors='coerce')
         return (df, le_dict)
         
         
+
+    def oneHotEncode2(self, df, le_dict):
+        if not le_dict:
+            columnsToEncode = list(df.select_dtypes(include=['category','object']))
+            train = True;
+        else:
+            columnsToEncode = le_dict.keys()   
+            train = False;
+    
+        for feature in columnsToEncode:
+            if train:
+                le_dict[feature] = preprocessing.LabelEncoder()
+            
+            try:
+                #df[feature] = df[feature].astype(str)
+                
+                if len(df) == 1:
+                    df = pd.concat([df,
+                                pd.get_dummies(df[feature],drop_first=False,dummy_na=False).rename(columns=lambda x: feature + '_' + str(x))], axis=1)
+                else:
+                    df = pd.concat([df,
+                                    pd.get_dummies(df[feature],drop_first=False,dummy_na=False).rename(columns=lambda x: feature + '_' + str(x))], axis=1)
+                
+                df = df.drop(feature, axis=1)
+
+                normalLogger.debug('-- one-hot encoder for %s'%feature)
+
+            except:
+                normalLogger.debug('Error encoding '+feature+' there might be a new category in this feature.')
+                normalLogger.debug(set(df[feature]))
+
+                #df[feature]  = df[feature].convert_objects(convert_numeric='force')
+                df[feature]  = df[feature].apply(pd.to_numeric, errors='coerce')
+        return (df, le_dict)
+
+
     
 
