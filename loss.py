@@ -18,7 +18,7 @@ class CustomLoss:
         return grad, hess
 
     #https://blog.csdn.net/qq_32103261/article/details/108219332
-    def focal_loss(self, y_true,y_pred):
+    def focal_loss_boosting(self, y_true,y_pred):
         a = self.alpha
         g = 2
         y = y_true

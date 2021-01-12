@@ -1,16 +1,21 @@
 # -*- coding: utf-8 -*-
-from flask import Flask, request, Response
-import pandas as pd
+from flask import Flask, request, Response, abort
+#import pandas as pd
 import numpy as np
 import os
 import pickle
 import logging
+#from logging.handlers import TimedRotatingFileHandler
+from logging.handlers import BaseRotatingHandler
+import codecs
+
 import datetime
 import shap
 import time
 import json
+import argparse
 from sklearn.externals import joblib
-from pandas.io.json import json_normalize
+from pandas import json_normalize
 
 app = Flask(__name__)
 
@@ -35,16 +40,22 @@ def home():
 
 
 
-@app.route('/SEPSIS_XGB', methods=['POST'])
-def SEPSIS_XGB():
-    json_data = request.get_json()
-    normalLogger.debug('receive json data...')
-    print(json_data)
+@app.route('/XGB', methods=['POST'])
+def XGB():
 
-    normalLogger.debug('transform json to dataframe and do inference...')
-    data = json_normalize(json_data)
-    print(data)
+    try:
+        json_data = request.get_json()
+        normalLogger.debug('receive json data...')
 
+        normalLogger.debug('transform json to dataframe and do inference...')
+        data = json_normalize(json_data)
+        #print(data)
+    except FileNotFoundError:
+        normalLogger.debug('can not load json file, please check data...')
+        abort(404)
+
+
+    #try:
     inference_start = time.time()
     pred_prob, col_names, shap_values = inference(data)
     normalLogger.debug('finish inference, elapsed %.4fs (preprocess+shap+prediction)'%(time.time()-inference_start))
@@ -53,6 +64,10 @@ def SEPSIS_XGB():
     result_dict = {'pred_prob':pred_prob, 'feature_names':list(col_names), 'shap_values':shap_values}
     result_json = json.dumps(result_dict,cls=NumpyEncoder)
     
+    #except:
+    #    normalLogger.debug('fail to predict data...')
+    #    abort(500)
+
     return Response(result_json,status=200, mimetype="application/json")
 
 
@@ -60,36 +75,48 @@ def SEPSIS_XGB():
 
 def inference(data):
     normalLogger.debug('preprocess data...')
-    data_encoder, _, _ = preprocessor.transform(data)
+    data_encoder = preprocessor.transform(data)
+    #print(data_encoder)
     
-    shap_start = time.time()
-    explainer = shap.TreeExplainer(model)
-    if len(data_encoder)==1:
-        
-        shap_values = explainer.shap_values(data_encoder)
-        
-        #plt.figure()
-        #plt.switch_backend('agg')
-        #local_explain_plot = shap.force_plot(explainer.expected_value,shap_values[0,:],data_encoder.iloc[0,:],show=False,matplotlib=True)
-        #plt.title
-        #plt.show()
-        #file_name = 'image.jpg'
-        #local_explain_plot.savefig(os.path.join(save_path,file_name),bbox_inches="tight")
-        
-    else:
-        shap_values=[]
-        for i in range(len(data_encoder)):
-            shap_values.append(explainer.shap_values(data_encoder[i:i+1])[0] )
+    try:
+        shap_start = time.time()
+        explainer = shap.TreeExplainer(model)
+        if len(data_encoder)==1:
+            tmp_shap_values = explainer.shap_values(data_encoder)
+            #print('base value:',explainer.expected_value)
+
+            if len(tmp_shap_values)==2: #for lgbm
+                shap_values = tmp_shap_values[1]
+            else:
+                shap_values = tmp_shap_values
+            #plt.figure()
+            #plt.switch_backend('agg')
+            #local_explain_plot = shap.force_plot(explainer.expected_value,shap_values[0,:],data_encoder.iloc[0,:],show=False,matplotlib=True)
+            #plt.title
+            #plt.show()
+            #file_name = 'image.jpg'
+            #local_explain_plot.savefig(os.path.join(save_path,file_name),bbox_inches="tight")
+            
+        else:
+            shap_values=[]
+            for i in range(len(data_encoder)):
+                tmp_shap_values = explainer.shap_values(data_encoder[i:i+1])[0]
+                if len(tmp_shap_values)== 2: #for lgbm
+                     shap_values_single = tmp_shap_values[1]
+                else:
+                    shap_values_single = tmp_shap_values
+                shap_values.append(shap_values_single)
+
+        normalLogger.debug('shap explainer elapsed %.4fs'%(time.time()-shap_start))
+
+    except:
+        normalLogger.debug('fail to explain data by shap...')
+        shap_values = []
     
-    normalLogger.debug('shap explainer elapsed %.4fs'%(time.time()-shap_start))
-    
-    #shap_values=[]
+    normalLogger.debug('run model prediction...')
     pred_prob = np.round_(model.predict_proba(data_encoder),3)
     print(pred_prob)
-    #y_hat = np.expand_dims(y_preds,axis=0)
-    #pred_result = np.concatenate((y_hat.T,pred_prob),axis=1)
     
-
     return [i[1] for i in pred_prob], data_encoder.columns, shap_values
 
 
@@ -98,16 +125,16 @@ def inference(data):
 
 def SetupLogger(loggerName, filename):
     path = os.path.join(cwd,'log')
-    if not os.path.exists(path):
-        os.makedirs(path)
+    older_checker(path)
 
     logger = logging.getLogger(loggerName)
 
     logfilename = datetime.datetime.now().strftime(filename)
     logfilename = os.path.join(path, logfilename)
-
+    
     logformatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
     fileHandler = logging.FileHandler(logfilename, 'a', 'utf-8')
+    
     fileHandler.setFormatter(logformatter)
     streamHandler = logging.StreamHandler()
     streamHandler.setFormatter(logformatter)
@@ -123,11 +150,81 @@ def folder_checker(path):
 
 
 
+def MultiProcessLogger(loggerName, filename):
+    logger = logging.getLogger(loggerName)
+    
+    path = os.path.join(cwd,'log')
+    folder_checker(path)
+    
+    level = logging.DEBUG
+    logfilename = os.path.join(path, filename)
+    format = '%(asctime)s %(levelname)-8s %(message)s'
+    hdlr = MultiProcessSafeDailyRotatingFileHandler(logfilename, encoding='utf-8')
+    fmt = logging.Formatter(format)
+    hdlr.setFormatter(fmt)
+    logger.addHandler(hdlr)
+    logger.setLevel(level)
+    
+
+# ref: https://my.oschina.net/lionets/blog/796438
+class MultiProcessSafeDailyRotatingFileHandler(BaseRotatingHandler):
+    """Similar with `logging.TimedRotatingFileHandler`, while this one is
+    - Multi process safe
+    - Rotate at midnight only
+    - Utc not supported
+    """
+    def __init__(self, filename, encoding=None, delay=False, utc=False, **kwargs):
+        self.utc = utc
+        self.suffix = "%Y-%m-%d.log"
+        self.baseFilename = filename
+        self.currentFileName = self._compute_fn()
+        BaseRotatingHandler.__init__(self, filename, 'a', encoding, delay)
+
+    def shouldRollover(self, record):
+        if self.currentFileName != self._compute_fn():
+            return True
+        return False
+
+    def doRollover(self):
+        if self.stream:
+            self.stream.close()
+            self.stream = None
+        self.currentFileName = self._compute_fn()
+
+    def _compute_fn(self):
+        return self.baseFilename + "." + time.strftime(self.suffix, time.localtime())
+
+    def _open(self):
+        if self.encoding is None:
+            stream = open(self.currentFileName, self.mode)
+        else:
+            stream = codecs.open(self.currentFileName, self.mode, self.encoding)
+        # simulate file name structure of `logging.TimedRotatingFileHandler`
+        if os.path.exists(self.baseFilename):
+            try:
+                os.remove(self.baseFilename)
+            except OSError:
+                pass
+        try:
+            os.symlink(self.currentFileName, self.baseFilename)
+        except OSError:
+            pass
+        return stream
+
+
+
+
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='a ML model webAPI serving')
+    parser.add_argument('--port', default='5566', help='port')
+
+    args = parser.parse_args()
+
     
-    
-    SetupLogger('normalLogger', "%Y-%m-%d.log")
+    #SetupLogger('normalLogger', "%Y-%m-%d %H:%M.log")
+    MultiProcessLogger('normalLogger', 'server')
+
     
     #load model
     with open('./model_data/grid.pkl','rb') as f:
@@ -146,15 +243,15 @@ if __name__ == '__main__':
     except:
         na_rule = {}
     
-    
     if na_rule:
         preprocessor.na_rule = na_rule
     
     
+
     app.run(
-        debug = True,
+        debug = False,
         host = '0.0.0.0',
-        port = 5566,
+        port = args.port,
         threaded = False,
         processes=4
         #ssl_context = ('./ssl/XXX.crt', './ssl/XXX.key')
