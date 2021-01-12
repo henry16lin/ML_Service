@@ -12,5 +12,5 @@ python main.py
 then it will ask you data path for prediction.  
 
 ## web service:  
-python flask_app.py  
+python web_server.py  
   
