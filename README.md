@@ -1,8 +1,8 @@
 # ML_model_service
-A ML pipeline for basic XGBoost model
+A ML pipeline for basic XGBoost/LightGBM/simple NN model
 
 ## Set up  
-pip install shap sklearn  
+pip install scikit-learn shap  
 
 ## Training:  
 python main.py --train --y_col label --data_dir ./path/to/file.csv  
