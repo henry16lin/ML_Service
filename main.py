@@ -21,8 +21,7 @@ from preprocess import preprocess
 from model import get_model
 
 
-
-plt.style.use('ggplot')
+plt.style.use('seaborn')
 
 
 cwd = os.getcwd()
@@ -30,8 +29,8 @@ abs_path = os.path.realpath(sys.argv[0])
 normalLogger = logging.getLogger('normalLogger')
 
 
-def tmp_fn(df):
-    # delet some col only for information(like id) but not used in training 
+def drop_useful_col(df):
+    # delet some col only for information(like id) but not useful in training 
     drop_col = ['PassengerId','id']
     for c in drop_col:
         if c in df.columns:
@@ -47,15 +46,15 @@ def train(args):
     target, features = data[args.y_col], data.drop([args.y_col], axis=1)
     X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=0.25,random_state=33)
 
+    ##### output test_set.csv #####
+    # X_test[args.y_col] = y_test
+    # X_test.to_csv('test_set.csv',index=False)
+    # X_test.drop([args.y_col], axis=1, inplace=True)
     #####
-    X_test['SEPSIS'] = y_test
-    X_test.to_csv('test_set.csv',index=False)
 
-    tmp_fn(X_train)
-    tmp_fn(X_test)
-    X_test.drop(['SEPSIS'],axis=1,inplace=True)
-
-    #X_test.to_csv('after_test_set.csv',index=False)
+    drop_useful_col(X_train)
+    drop_useful_col(X_test)
+    
     #####
 
     normalLogger.debug('X_train size:'+str(X_train.shape))
@@ -110,7 +109,7 @@ def train(args):
         grid_start = time.time()
         scroer = make_scorer(fbeta_score , beta=3)
         if len(param_grid)>0:
-            grid = GridSearchCV(estimator=model,cv=3, n_jobs=-1 , param_grid=param_grid, scoring=scroer)
+            grid = GridSearchCV(estimator=model, cv=5, n_jobs=-1 , param_grid=param_grid, scoring=scroer)
             #grid = RandomizedSearchCV(estimator=model,cv=5, n_jobs=-1 , param_distributions=param_grid, scoring='f1_micro', n_iter=100)
         else:
             grid = model
@@ -146,7 +145,7 @@ def train(args):
     colormap = sns.diverging_palette(220, 10, as_cmap=True)
     sns.set(font_scale=1.4)
     plt.figure()
-    train_plot = sns.heatmap(train_conf,cmap=colormap,annot=True,cbar=False,fmt='d')
+    train_plot = sns.heatmap(train_conf, cmap=colormap, annot=True, cbar=False, fmt='d')
     train_fig = train_plot.get_figure()
     plt.title('train auc: %.3f, recall:%s' %(train_auc, str(train_recall))) 
     train_fig.savefig("train_confusion.png")
@@ -171,7 +170,7 @@ def train(args):
 
     # graph confusion table and save
     plt.figure()
-    test_plot = sns.heatmap(test_conf,cmap=colormap,annot=True,cbar=False,fmt='d')
+    test_plot = sns.heatmap(test_conf, cmap=colormap, annot=True, cbar=False, fmt='d')
     test_fig = test_plot.get_figure()
     plt.title('test auc: %.3f, recall:%s' %(test_auc,str(test_recall)) )
     test_fig.savefig("test_confusion.png")
@@ -185,7 +184,7 @@ def feature_importance(X_train_encoder,model):
     plt.figure()
     import_plot = importance_df[:np.min([25,importance_df.shape[0]])].plot.bar(x='feature',y='importance',rot=90)
     tmp = import_plot.get_figure()
-    tmp.savefig("feature_importance.png",bbox_inches="tight")
+    tmp.savefig("feature_importance.png", bbox_inches="tight")
     
     
     
@@ -240,7 +239,6 @@ def inference(data, preprocessor, model):
         pred_result = np.concatenate((y_hat.T,preds_prob),axis=1)
 
         
-
     return pred_result
 
 
@@ -275,7 +273,7 @@ def folder_checker():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='ML model pipline for training and testing')
-    parser.add_argument('--data_dir', default='./train.csv', help='path to data')
+    parser.add_argument('--data_dir', default='./2019_join_data_WithLabelKey_20201110.csv', help='path to data')
     parser.add_argument('--train', default=False, action="store_true",help='whether to train model')
     parser.add_argument('--algorithm', default='XGB',help='which model you want to train(XGB or LGB or nn)')
     parser.add_argument('--y_col', default='lebel',help='column name of predict target')
