@@ -11,8 +11,9 @@ import json
 import sys
 
 from sklearn.model_selection import train_test_split,GridSearchCV, RandomizedSearchCV
-from sklearn.metrics import confusion_matrix, roc_auc_score, make_scorer, fbeta_score, recall_score
-from sklearn.externals import joblib
+from sklearn.metrics import (confusion_matrix, roc_auc_score, 
+    make_scorer, fbeta_score, recall_score, mean_squared_error, mean_absolute_percentage_error)
+import joblib
 
 import seaborn as sns
 from matplotlib import pyplot as plt
@@ -64,7 +65,7 @@ def train(args):
     
     
     normalLogger.debug('create preprocess from training data...')
-    preprocessor = preprocess( encoder='label', normalize=(args.algorithm=='nn') )
+    preprocessor = preprocess( encoder='onehot', normalize=(args.algorithm=='nn') )
     
     if args.algorithm == 'nn':
         # note: target is for target encoder and nn to get output class count.
@@ -78,18 +79,22 @@ def train(args):
     with open('./model_data/preprocessor.pkl', 'wb') as output:
         pickle.dump(preprocessor, output, pickle.HIGHEST_PROTOCOL)
     
-    
-    scaler = sum(y_train!=1)/sum(y_train==1)
-    #restrict the max scale time
-    if sum(y_train!=1)/sum(y_train==1)>100:
-        scaler = 100  #np.floor(np.sqrt(sum(y_train!=1)/sum(y_train==1)))
+    if args.type == "classification":
+        scaler = sum(y_train!=1)/sum(y_train==1)
+        #restrict the max scale time
+        #if sum(y_train!=1)/sum(y_train==1)>100:
+        #    scaler = 100
+    else:
+        scaler = 1 #in regression scaler is doesn't matter
 
     
     normalLogger.debug('initialize %s model...' %args.algorithm)
-    model, param_grid = get_model(args.algorithm,scaler=scaler, 
-                                  in_features=len(X_train.columns),
-                                  num_classes=len(set(y_train)),
-                                  mid_features=256 )
+    model, param_grid = get_model(args.algorithm,
+                                  type = args.type,
+                                  scaler = scaler, 
+                                  in_features = len(X_train.columns),
+                                  num_classes = len(set(y_train)),
+                                  mid_features = 256 )
 
     normalLogger.debug('getting model: ')
     normalLogger.debug(model)
@@ -100,16 +105,22 @@ def train(args):
         import torch
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         
-        grid = nn_factory(model, device, X_train_encoder ,y_train, batch_size=32)
+        grid = nn_factory(model, device, X_train_encoder, y_train, batch_size=32)
         grid.fit(epoch=30) 
     
     else:    
         
         normalLogger.debug('Hyperparameter tuning...')
         grid_start = time.time()
-        scroer = make_scorer(fbeta_score , beta=3)
+        
+        if args.type == "classification":
+            scroer = make_scorer(fbeta_score , beta=3)
+        elif args.type == "regression":
+            scroer = "neg_mean_absolute_error"
+            # other metrics: https://scikit-learn.org/stable/modules/model_evaluation.html 
+
         if len(param_grid)>0:
-            grid = GridSearchCV(estimator=model, cv=5, n_jobs=-1 , param_grid=param_grid, scoring=scroer)
+            grid = GridSearchCV(estimator=model, cv=3, n_jobs=-1 , param_grid=param_grid, scoring=scroer)
             #grid = RandomizedSearchCV(estimator=model,cv=5, n_jobs=-1 , param_distributions=param_grid, scoring='f1_micro', n_iter=100)
         else:
             grid = model
@@ -128,29 +139,39 @@ def train(args):
         feature_importance(X_train_encoder,grid.best_estimator_)
 
 
-
-
     #see training performance
     normalLogger.debug('prediction on training set...')
     train_preds = grid.predict(X_train_encoder)
     
-    train_auc = roc_auc_score(y_train, train_preds)
-    train_recall = recall_score(y_train, train_preds, average=None)
+    if args.type =="classification":
+        train_auc = roc_auc_score(y_train, train_preds)
+        train_recall = recall_score(y_train, train_preds, average=None)
 
-    normalLogger.debug('compute and save the confusion matrix...')
-    train_conf = confusion_matrix(y_train, train_preds)
-    
+        normalLogger.debug('compute and save the confusion matrix...')
+        train_conf = confusion_matrix(y_train, train_preds)
 
-    # graph confusion table and save
-    colormap = sns.diverging_palette(220, 10, as_cmap=True)
-    sns.set(font_scale=1.4)
-    plt.figure()
-    train_plot = sns.heatmap(train_conf, cmap=colormap, annot=True, cbar=False, fmt='d')
-    train_fig = train_plot.get_figure()
-    plt.title('train auc: %.3f, recall:%s' %(train_auc, str(train_recall))) 
-    train_fig.savefig("train_confusion.png")
-    
+        # graph confusion table and save
+        colormap = sns.diverging_palette(220, 10, as_cmap=True)
+        sns.set(font_scale=1.4)
+        plt.figure()
+        train_plot = sns.heatmap(train_conf, cmap=colormap, annot=True, cbar=False, fmt='d')
+        train_fig = train_plot.get_figure()
+        plt.title('train auc: %.3f, recall:%s' %(train_auc, str(train_recall))) 
+        train_fig.savefig("train_confusion.png")
 
+    elif args.type =="regression":
+        mape = mean_absolute_percentage_error(y_train, train_preds)
+        rmse = mean_squared_error(y_train, train_preds, squared=False)
+        corr = np.corrcoef(list(y_train), list(train_preds))[0][1]
+        
+        # graph scatterplot table and save
+        plt.figure()
+        plt.scatter(y_train, train_preds)
+        plt.title("MAPE:{:.3f}, RMSE:{:.3f}, correlation:{:.3f}".format(mape,rmse,corr))
+        plt.xlabel("true value")
+        plt.ylabel("predict value")
+        plt.savefig("train_scatter_plot.png")
+        plt.close()
 
 
     ##### see testset performance #####
@@ -162,20 +183,36 @@ def train(args):
         preprocessor_test = pickle.load(input)
     
     X_test_encoder  = preprocessor_test.transform(X_test)
-
     test_preds = grid.predict(X_test_encoder)
-    test_auc = roc_auc_score(y_test, test_preds)
-    test_recall = recall_score(y_test, test_preds, average=None)
-    test_conf = confusion_matrix(y_test, test_preds)
+    
+    if args.type =="classification":
+        test_auc = roc_auc_score(y_test, test_preds)
+        test_recall = recall_score(y_test, test_preds, average=None)
+        test_conf = confusion_matrix(y_test, test_preds)
 
-    # graph confusion table and save
-    plt.figure()
-    test_plot = sns.heatmap(test_conf, cmap=colormap, annot=True, cbar=False, fmt='d')
-    test_fig = test_plot.get_figure()
-    plt.title('test auc: %.3f, recall:%s' %(test_auc,str(test_recall)) )
-    test_fig.savefig("test_confusion.png")
+        # graph confusion table and save
+        plt.figure()
+        test_plot = sns.heatmap(test_conf, cmap=colormap, annot=True, cbar=False, fmt='d')
+        test_fig = test_plot.get_figure()
+        plt.title('test auc: %.3f, recall:%s' %(test_auc,str(test_recall)) )
+        test_fig.savefig("test_confusion.png")
+
+    elif args.type =="regression":
+        test_mape = mean_absolute_percentage_error(y_test, test_preds)
+        test_rmse = mean_squared_error(y_test, test_preds, squared=False)
+        test_corr = np.corrcoef(list(y_test), list(test_preds))[0][1]
+        
+        # graph scatterplot table and save
+        plt.figure()
+        plt.scatter(list(y_test), list(test_preds))
+        plt.title("MAPE:{:.3f}, RMSE:{:.3f}, correlation:{:.3f}".format(test_mape,test_rmse,test_corr))
+        plt.xlabel("true value")
+        plt.ylabel("predict value")
+        plt.savefig("test_scatter_plot.png")
+        plt.close()
 
     
+
     
 def feature_importance(X_train_encoder,model):
     importance_df = pd.DataFrame({'feature':list(X_train_encoder.columns),'importance':list(model.feature_importances_)})
@@ -199,11 +236,14 @@ def inference(data, preprocessor, model):
         normalLogger.debug('do inference...')
         inference_start = time.time()
         y_preds = model.predict(data_encoder)
-        preds_prob = model.predict_proba(data_encoder)
-        print('predict probability:')
-        print(preds_prob)
+        try:
+            preds_prob = model.predict_proba(data_encoder)
+            print('predict probability:')
+            print(preds_prob)
+        except:
+            preds_prob = [[np.nan]*len(y_preds)]
         y_hat = np.expand_dims(y_preds,axis=0)
-        pred_result = np.concatenate((y_hat.T,preds_prob),axis=1)
+        pred_result = np.concatenate((y_hat.T, preds_prob), axis=1)
         
         normalLogger.debug('finish inference, elapsed %.4fs'%(time.time()-inference_start))
 
@@ -275,6 +315,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='ML model pipline for training and testing')
     parser.add_argument('--data_dir', default='./2019_join_data_WithLabelKey_20201110.csv', help='path to data')
     parser.add_argument('--train', default=False, action="store_true",help='whether to train model')
+    parser.add_argument('--type', default='classification',help='classification or regression')
     parser.add_argument('--algorithm', default='XGB',help='which model you want to train(XGB or LGB or nn)')
     parser.add_argument('--y_col', default='lebel',help='column name of predict target')
     parser.add_argument('--model', default='./model_data/grid.pkl', help='path to load model')

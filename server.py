@@ -14,7 +14,7 @@ import shap
 import time
 import json
 import argparse
-from sklearn.externals import joblib
+import joblib
 from pandas import json_normalize
 
 app = Flask(__name__)

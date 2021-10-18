@@ -1,6 +1,6 @@
 import logging
-from xgboost import XGBClassifier
-from lightgbm import LGBMClassifier
+from xgboost import XGBClassifier, XGBRegressor
+from lightgbm import LGBMClassifier, LGBMRegressor
 
 from loss import CustomLoss
 
@@ -8,28 +8,37 @@ from loss import CustomLoss
 normalLogger = logging.getLogger('normalLogger')
 
 
-def get_model(model_name, scaler=1, **kwargs):
-    
+def get_model(model_name, type, scaler=1, **kwargs):
+    # type = "classification" or "regression"
     custom_loss = CustomLoss(alpha=scaler)
     param_grid={}
     
     if model_name == 'XGB':
-        model =  XGBClassifier(n_jobs=-1, #n_estimators=50,
-          random_state=100,
-          colsample_bytree=0.8, subsample=0.8,importance_type='gain',
-          scale_pos_weight = scaler
-          #objective = custom_loss.focal_loss_boosting
-          #max_delta_step=1
-          )
+        if type == "classification":
+            model =  XGBClassifier(n_jobs=-1, #n_estimators=50,
+              random_state=100,
+              colsample_bytree=0.8, subsample=0.8,importance_type='gain',
+              scale_pos_weight = scaler
+              #objective = custom_loss.focal_loss_boosting
+              #max_delta_step=1
+              )
+        elif type == "regression":
+            model =  XGBRegressor(n_jobs=-1, 
+                random_state=100,
+                colsample_bytree=0.8, subsample=0.8, importance_type='gain',
+                scale_pos_weight = scaler
+              )
+        else:
+            raise ValueError("type must be 'classification' or 'regression'! ")
 
         # tuning step suggestion: https://www.analyticsvidhya.com/blog/2016/03/complete-guide-parameter-tuning-xgboost-with-codes-python/
-        param_grid = {'max_depth': [2,3,4],
+        param_grid = {'max_depth': [2,3],
                       #'min_child_weight':[2,3,4],
-                      'learning_rate':[0.05, 0.1, 0.15],
+                      'learning_rate':[0.1, 0.5],
                       'gamma':[0, 1],
                       'n_estimators':[50,100],
-                      'reg_alpha':[1,3,5],
-                      'reg_lambda':[2,4,6]
+                      'reg_alpha':[1,3],
+                      'reg_lambda':[2,4]
                       }
 
     
@@ -37,11 +46,10 @@ def get_model(model_name, scaler=1, **kwargs):
     elif model_name == 'LGB':
         params_lgb = {
             #'scale_pos_weight': scaler,
-            'objective' : custom_loss.focal_loss_boosting,
+            #'objective' : custom_loss.focal_loss_boosting,
             'num_leaves': 60,
             'subsample':0.8,  #sample datas
             'colsample_bytree':0.8, #sample columns
-            'objective':'binary',
             'class_weight':'balanced',
             'importance_type':'gain',
             'random_state':42,
@@ -49,13 +57,19 @@ def get_model(model_name, scaler=1, **kwargs):
             'silent':True
         }
         
-        model = LGBMClassifier(**params_lgb)
+        if type == "classification":
+            model = LGBMClassifier(**params_lgb)
+        elif type == "regression":
+            model = LGBMRegressor(**params_lgb)
+        else:
+            raise ValueError("type must be 'classification' or 'regression'! ")
+
         param_grid = {
                       'n_estimators': [50,100,200],
-                      'max_depth': [7,8,9],
+                      'max_depth': [5,7,9],
                       'learning_rate':[0.05, 0.1, 0.3],
-                      'min_child_samples': [20,30,40],
-                      'min_child_weight':[1.5, 2, 2.5, 3],
+                      'min_child_samples': [10,30],
+                      #'min_child_weight':[1.5, 2, 3],
                       'reg_alpha':[1,3,5],
                       'reg_lambda':[2,4,6]
                       }
@@ -65,7 +79,6 @@ def get_model(model_name, scaler=1, **kwargs):
         # param_grid={}
 
     
-
 
     elif model_name =='nn':
         import torch.nn as nn
