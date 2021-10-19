@@ -1,6 +1,6 @@
 *.log
 log/
 model_data/
-.DS_Store*
+.DS_Store
 Thumbs.db
 __pycache__/
