@@ -32,7 +32,7 @@ normalLogger = logging.getLogger('normalLogger')
 
 def drop_useful_col(df):
     # delet some col only for information(like id) but not useful in training 
-    drop_col = ['PassengerId','id']
+    drop_col = ['PassengerId','id','Id']
     for c in drop_col:
         if c in df.columns:
             df.drop([c],axis=1,inplace=True) 
@@ -72,7 +72,7 @@ def train(args):
         #       if you don't use target encoder and algorithm is not nn, then target is not matter 
         X_train_encoder = preprocessor.fit_transform(X_train, auto_fill = True, target = y_train)
     else:
-        X_train_encoder = preprocessor.fit_transform(X_train, auto_fill = False, target = y_train)
+        X_train_encoder = preprocessor.fit_transform(X_train, auto_fill = True, target = y_train)
     
 
     # save preprocessor to pickle
@@ -120,7 +120,7 @@ def train(args):
             # other metrics: https://scikit-learn.org/stable/modules/model_evaluation.html 
 
         if len(param_grid)>0:
-            grid = GridSearchCV(estimator=model, cv=3, n_jobs=-1 , param_grid=param_grid, scoring=scroer)
+            grid = GridSearchCV(estimator=model, cv=3, n_jobs=-1 , param_grid=param_grid, scoring=scroer,  verbose=1)
             #grid = RandomizedSearchCV(estimator=model,cv=5, n_jobs=-1 , param_distributions=param_grid, scoring='f1_micro', n_iter=100)
         else:
             grid = model
@@ -236,14 +236,20 @@ def inference(data, preprocessor, model):
         normalLogger.debug('do inference...')
         inference_start = time.time()
         y_preds = model.predict(data_encoder)
-        try:
-            preds_prob = model.predict_proba(data_encoder)
-            print('predict probability:')
-            print(preds_prob)
-        except:
-            preds_prob = [[np.nan]*len(y_preds)]
         y_hat = np.expand_dims(y_preds,axis=0)
+        #try:
+        preds_prob = model.predict_proba(data_encoder)
+        print(preds_prob)
         pred_result = np.concatenate((y_hat.T, preds_prob), axis=1)
+        print('predict probability:')
+        print(preds_prob)
+
+        #except:
+        #    preds_prob = [np.nan]*len(y_preds)
+        #    preds_prob = np.expand_dims(preds_prob,axis=0)
+        #    pred_result = np.concatenate((y_hat.T, preds_prob.T), axis=1)
+        #    print('predict result:')
+        #    print(y_hat)
         
         normalLogger.debug('finish inference, elapsed %.4fs'%(time.time()-inference_start))
 
@@ -347,7 +353,8 @@ if __name__ == '__main__':
         
         if na_rule:
             preprocessor.na_rule = na_rule
-        
+        print('NA fill rule (base on median or mode from training data): ')
+        print(preprocessor.na_rule)
         
         # load model
         try:

@@ -15,15 +15,12 @@ def get_model(model_name, type, scaler=1, **kwargs):
     
     if model_name == 'XGB':
         params_xgb = {
-            n_jobs=-1,random_state=100,
-            colsample_bytree=0.8, subsample=0.8,importance_type='gain',
-            scale_pos_weight = scaler
-            #objective = custom_loss.focal_loss_boosting
-            #max_delta_step=1
-        }
+            'n_jobs': -1, 'random_state': 100, 'use_label_encoder':False,
+            'colsample_bytree':0.8, 'subsample':0.8, 
+            'importance_type':'gain', 'scale_pos_weight' :scaler}
 
         if type == "classification":
-            model =  XGBClassifier(**params_xgb)
+            model =  XGBClassifier(eval_metric='mlogloss', **params_xgb)
 
         elif type == "regression":
             model =  XGBRegressor(**params_xgb)
@@ -31,7 +28,7 @@ def get_model(model_name, type, scaler=1, **kwargs):
             raise ValueError("type must be 'classification' or 'regression'! ")
 
         # tuning step suggestion: https://www.analyticsvidhya.com/blog/2016/03/complete-guide-parameter-tuning-xgboost-with-codes-python/
-        param_grid = {'max_depth': [2,3],
+        param_grid = {'max_depth': [3],
                       #'min_child_weight':[2,3,4],
                       'learning_rate':[0.1, 0.5],
                       'gamma':[0, 1],
@@ -63,9 +60,9 @@ def get_model(model_name, type, scaler=1, **kwargs):
             raise ValueError("type must be 'classification' or 'regression'! ")
 
         param_grid = {
-                      'n_estimators': [50,100,200],
+                      'n_estimators': [50,100,150],
                       'max_depth': [5,7,9],
-                      'learning_rate':[0.05, 0.1, 0.3],
+                      'learning_rate':[0.1, 0.3],
                       'min_child_samples': [10,30],
                       #'min_child_weight':[1.5, 2, 3],
                       'reg_alpha':[1,3,5],

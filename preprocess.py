@@ -78,6 +78,7 @@ class preprocess():
         for c in data.columns:
             if c in self.dtype.keys():
                 if str(data[c].dtypes) != str( self.dtype[c] ):
+                    print(c)
                     normalLogger.debug('-- align %s type from %s to %s' %(c,str(data[c].dtypes),str( self.dtype[c] )) )
                     data[c] = data[c].astype(str(self.dtype[c]))
         
@@ -120,7 +121,7 @@ class preprocess():
         df_c = data.copy()
         na_cnt = data.isnull().sum()
         null_col = list(na_cnt[na_cnt>0].index)
-        fill_col = [c for c in null_col if c not in list(rule.keys())]
+        #fill_col = [c for c in null_col if c not in list(rule.keys())]
         
         if rule :
             for c in data.columns:
@@ -133,7 +134,7 @@ class preprocess():
             normalLogger.debug('-- no exists na rule to fill')
         
         if auto_fill:
-            for col in fill_col:
+            for col in data.columns: #fill_col:
                 if data[col].dtypes=='object': #category fill by mode
                     fill_cat = data[col].value_counts().idxmax()
                     rule.update({col:fill_cat})

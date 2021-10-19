@@ -38,28 +38,31 @@ def sent_request(args):
     #print('receive the model result:')
     #print(response_dict)
 
-    shap_values_np = np.array(response_dict['shap_values'][0])
+    for i in range(len(response_dict['shap_values'])):
+        print('shap explain for {} pridict result:'.format(i))
+        shap_values_np = np.array(response_dict['shap_values'][i])
 
-    postive_feature_ind = list(np.where(shap_values_np>0)[0])
-    negative_feature_ind = list(np.where(shap_values_np<0)[0])
+        postive_feature_ind = list(np.where(shap_values_np>0)[0])
+        negative_feature_ind = list(np.where(shap_values_np<0)[0])
 
-    feature_names_np = np.array(response_dict['feature_names'])
-    positive_feature_np = feature_names_np[postive_feature_ind]
-    negative_feature_np = feature_names_np[negative_feature_ind]
+        feature_names_np = np.array(response_dict['feature_names'])
+        positive_feature_np = feature_names_np[postive_feature_ind]
+        negative_feature_np = feature_names_np[negative_feature_ind]
 
-    positive_shap_np = shap_values_np[postive_feature_ind]
-    negative_shap_np = shap_values_np[negative_feature_ind]
+        positive_shap_np = shap_values_np[postive_feature_ind]
+        negative_shap_np = shap_values_np[negative_feature_ind]
 
-    positive_sort_index = np.argsort(-positive_shap_np)
-    negative_sort_index = np.argsort(negative_shap_np)
-    
-    print('positive factors:')
-    print( positive_feature_np[positive_sort_index] )
-    print(positive_shap_np[positive_sort_index])
+        positive_sort_index = np.argsort(-positive_shap_np)
+        negative_sort_index = np.argsort(negative_shap_np)
+        
+        print('positive factors:')
+        print( positive_feature_np[positive_sort_index] )
+        print(positive_shap_np[positive_sort_index])
 
-    print('\nnegative factors:')
-    print( negative_feature_np[negative_sort_index])
-    print(negative_shap_np[negative_sort_index])
+        print('\nnegative factors:')
+        print( negative_feature_np[negative_sort_index])
+        print(negative_shap_np[negative_sort_index])
+        print('='*50)
 
     
     
