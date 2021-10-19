@@ -223,7 +223,7 @@ class MultiProcessSafeDailyRotatingFileHandler(BaseRotatingHandler):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='a ML model webAPI serving')
-    parser.add_argument('--port', default='5478', help='port')
+    parser.add_argument('--port', default='5566', help='port')
 
     args = parser.parse_args()
 
