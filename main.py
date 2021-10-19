@@ -65,7 +65,7 @@ def train(args):
     
     
     normalLogger.debug('create preprocess from training data...')
-    preprocessor = preprocess( encoder='onehot', normalize=(args.algorithm=='nn') )
+    preprocessor = preprocess( encoder=args.encoder, normalize=(args.algorithm=='nn') )
     
     if args.algorithm == 'nn':
         # note: target is for target encoder and nn to get output class count.
@@ -316,6 +316,7 @@ if __name__ == '__main__':
     parser.add_argument('--data_dir', default='./2019_join_data_WithLabelKey_20201110.csv', help='path to data')
     parser.add_argument('--train', default=False, action="store_true",help='whether to train model')
     parser.add_argument('--type', default='classification',help='classification or regression')
+    parser.add_argument('--encoder', default='label',help='categorical feature encoder, one of: label, onehot, target')
     parser.add_argument('--algorithm', default='XGB',help='which model you want to train(XGB or LGB or nn)')
     parser.add_argument('--y_col', default='lebel',help='column name of predict target')
     parser.add_argument('--model', default='./model_data/grid.pkl', help='path to load model')

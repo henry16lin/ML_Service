@@ -14,20 +14,19 @@ def get_model(model_name, type, scaler=1, **kwargs):
     param_grid={}
     
     if model_name == 'XGB':
+        params_xgb = {
+            n_jobs=-1,random_state=100,
+            colsample_bytree=0.8, subsample=0.8,importance_type='gain',
+            scale_pos_weight = scaler
+            #objective = custom_loss.focal_loss_boosting
+            #max_delta_step=1
+        }
+
         if type == "classification":
-            model =  XGBClassifier(n_jobs=-1, #n_estimators=50,
-              random_state=100,
-              colsample_bytree=0.8, subsample=0.8,importance_type='gain',
-              scale_pos_weight = scaler
-              #objective = custom_loss.focal_loss_boosting
-              #max_delta_step=1
-              )
+            model =  XGBClassifier(**params_xgb)
+
         elif type == "regression":
-            model =  XGBRegressor(n_jobs=-1, 
-                random_state=100,
-                colsample_bytree=0.8, subsample=0.8, importance_type='gain',
-                scale_pos_weight = scaler
-              )
+            model =  XGBRegressor(**params_xgb)
         else:
             raise ValueError("type must be 'classification' or 'regression'! ")
 
@@ -40,7 +39,6 @@ def get_model(model_name, type, scaler=1, **kwargs):
                       'reg_alpha':[1,3],
                       'reg_lambda':[2,4]
                       }
-
     
     
     elif model_name == 'LGB':
