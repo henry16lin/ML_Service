@@ -19,18 +19,18 @@ optional arguments:
   
 ```
 ## Training exampole:  
-python main.py --train --y_col label --data_dir ./path/to/file.csv  
+python main.py --train --y_col Survived --data_dir ./data/titanic.csv  
   
 ## Prediction example: 
 python main.py  
-then it will ask you data path for prediction.  
+then it will ask you data path(.csv) for prediction.  
 
 ## REST API
 **server:**  
 python server.py
 
 **client:**  
-python python_client.py --data_dir ./your/json/file/path  
+python python_client.py --data_dir ./data/titanic_client_test.csv 
 
 ## web service:  
 python web_server.py  
