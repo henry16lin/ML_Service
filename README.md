@@ -18,7 +18,7 @@ optional arguments:
   --na_rule NA_RULE      (if you have domain rule)path to na rule(json)
   
 ```
-## Training exampole:  
+## Training example:  
 python main.py --train --y_col Survived --data_dir ./data/titanic.csv  
   
 ## Prediction example: 
