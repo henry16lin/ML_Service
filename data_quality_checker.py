@@ -1,6 +1,7 @@
 import logging
 import argparse
 import pandas as pd
+pd.set_option('display.max_rows', 500)
 
 def get_logger(loggerName, level, filename):
     levels = {
@@ -95,7 +96,7 @@ if __name__ == '__main__':
     parser.add_argument('--data_dir', help='path to data')
     parser.add_argument('--id_col', help='path to data')
     parser.add_argument('--label_col', help='path to data')
-    parser.add_argument('--label_list', type=str, help='path to data')
+    parser.add_argument('--label_list', default=None, type=str, help='path to data')
     args = parser.parse_args()
 
     df = pd.read_csv(args.data_dir)
@@ -103,7 +104,8 @@ if __name__ == '__main__':
 
     checker.null_checker()
     checker.id_checker(args.id_col)
-    checker.label_checker(args.label_col, [int(i) for i in args.label_list.split(',')])
+    if args.label_list is not None:
+        checker.label_checker(args.label_col, [int(i) for i in args.label_list.split(',')])
 
 
 

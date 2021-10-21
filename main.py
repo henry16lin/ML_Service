@@ -30,10 +30,16 @@ abs_path = os.path.realpath(sys.argv[0])
 normalLogger = logging.getLogger('normalLogger')
 
 
-def drop_useful_col(df):
+def drop_useful_col(df, exclude_col):
     # delet some col only for information(like id) but not useful in training 
-    drop_col = ['PassengerId','id','Id']
-    for c in drop_col:
+    exclude_col = exclude_col.split(',')
+    for c in df.columns:
+        if str(df[c].dtypes)=='object':
+            class_cnt = len(set(df[c]))
+            if class_cnt>32:
+                exclude_col.append(c)
+    #exclude_col = ['PassengerId','id','Id']
+    for c in exclude_col:
         if c in df.columns:
             df.drop([c],axis=1,inplace=True) 
 
@@ -53,8 +59,8 @@ def train(args):
     # X_test.drop([args.y_col], axis=1, inplace=True)
     #####
 
-    drop_useful_col(X_train)
-    drop_useful_col(X_test)
+    drop_useful_col(X_train, args.exclude_col)
+    drop_useful_col(X_test, args.exclude_col)
     
     #####
 
@@ -237,19 +243,19 @@ def inference(data, preprocessor, model):
         inference_start = time.time()
         y_preds = model.predict(data_encoder)
         y_hat = np.expand_dims(y_preds,axis=0)
-        #try:
-        preds_prob = model.predict_proba(data_encoder)
-        print(preds_prob)
-        pred_result = np.concatenate((y_hat.T, preds_prob), axis=1)
-        print('predict probability:')
-        print(preds_prob)
+        try:
+            preds_prob = model.predict_proba(data_encoder)
+            print(preds_prob)
+            pred_result = np.concatenate((y_hat.T, preds_prob), axis=1)
+            print('predict probability:')
+            print(preds_prob)
 
-        #except:
-        #    preds_prob = [np.nan]*len(y_preds)
-        #    preds_prob = np.expand_dims(preds_prob,axis=0)
-        #    pred_result = np.concatenate((y_hat.T, preds_prob.T), axis=1)
-        #    print('predict result:')
-        #    print(y_hat)
+        except:
+            preds_prob = [np.nan]*len(y_preds)
+            preds_prob = np.expand_dims(preds_prob,axis=0)
+            pred_result = np.concatenate((y_hat.T, preds_prob.T), axis=1)
+            print('predict result:')
+            print(y_hat)
         
         normalLogger.debug('finish inference, elapsed %.4fs'%(time.time()-inference_start))
 
@@ -327,6 +333,7 @@ if __name__ == '__main__':
     parser.add_argument('--y_col', default='lebel',help='column name of predict target')
     parser.add_argument('--model', default='./model_data/grid.pkl', help='path to load model')
     parser.add_argument('--na_rule', default='./model_data/na_rule.json', help='path to na rule(json)')
+    parser.add_argument('--exclude_col', default='', help='col name you want to skip in training, string split with ","')
     args = parser.parse_args()
 
     folder_checker()
@@ -405,7 +412,8 @@ if __name__ == '__main__':
             col_name = ['prediction'] + ['prob_'+str(i) for i in range(class_cnt)]
             
             pred_df = pd.DataFrame(pred_result,columns=col_name)
-            pred_df.to_csv('pred_result.csv',index=False)
+            data_with_pred = pd.concat([data, pred_df], axis=1)
+            data_with_pred.to_csv('pred_result.csv',index=False)
             normalLogger.debug('end inference!\n')
 
 

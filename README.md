@@ -19,7 +19,7 @@ optional arguments:
   
 ```
 ## Training example:  
-python main.py --train --y_col Survived --data_dir ./data/titanic.csv  
+python main.py --train --y_col Survived --data_dir ./data/titanic.csv --exclude_col 'PassengerId'  
   
 ## Prediction example: 
 python main.py  
