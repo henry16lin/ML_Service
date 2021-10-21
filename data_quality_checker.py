@@ -43,8 +43,7 @@ class check_quality(object):
         #self.summary['null_checker'] = null_summary
         
         logger.debug('='*20 + 'null checker' + '='*20)
-        logger.debug(null_summary)
-        logger.debug('\n')
+        logger.debug('null summary:\n{}\n'.format(null_summary.to_string()))
         
     
     def id_checker(self, id_col): #id column should be unique and complete
@@ -66,29 +65,41 @@ class check_quality(object):
             #self.summary['id_checker'] += 'id column:{} is unique'.format(id_col)
             logger.debug('id column:{} is unique\n'.format(id_col))
             
+    def categorical_checker(self):
+        logger.debug('='*20 + 'categorical checker checker' + '='*20)
+        col_name, class_cnt = [],[]
+        for c in self.df.columns:
+            if str(df[c].dtypes)=='object':
+                col_name.append(c)
+                class_cnt.append( len(set(df[c]) ))
+        cnt_summary = pd.DataFrame({'column':col_name, 'class_cnt': class_cnt})
+        logger.debug('categorical column class count:\n{}\n'.format(cnt_summary.to_string() ) )
+        #logger.debug(pd.DataFrame(class_cnt_dict,index=[0]))
+
         
-        
-    def label_checker(self, label_col, label_list):
+    def label_checker(self, label_col, label_list=None):
         logger.debug('='*20 + 'label checker' + '='*20)
         # complete
         if self.df[label_col].isnull().sum()>0:
             #self.summary['label_checker'] = '[Warning!] label column:{} should not contain Nulls'.format(label_col)
-            logger.debug('[Warning!] label column:{} should not contain Nulls'.format(label_col))
+            logger.debug('[Warning!] label column:{} should not contain Nulls\n'.format(label_col))
         else:
             #self.summary['label_checker'] = 'label column:{} has no Nulls'.format(label_col)
-            logger.debug('label column:{} has no Nulls'.format(label_col))
+            logger.debug('label column:{} has no Nulls\n'.format(label_col))
         
         # element check
-        wrong_label = []
-        for i in set(self.df[label_col]):
-            if i not in label_list:
-                wrong_label.append(i)
-        if len(wrong_label)>0:
-            #self.summary['label_checker'] += '\n[Warning!] label column:{} has elements not in label list:{}'.format(label_col, wrong_label)
-            logger.debug('[Warning!] label column:{} has elements not in label list:{}'.format(label_col, wrong_label))
-        else:
-            #self.summary['label_checker'] += '\nlabel column element check ok!'
-            logger.debug('label column element check ok!')
+        if label_list is not None:
+            label_list = [int(i) for i in label_list.split(',')]
+            wrong_label = []
+            for i in set(self.df[label_col]):
+                if i not in label_list:
+                    wrong_label.append(i)
+            if len(wrong_label)>0:
+                #self.summary['label_checker'] += '\n[Warning!] label column:{} has elements not in label list:{}'.format(label_col, wrong_label)
+                logger.debug('[Warning!] label column:{} has elements not in label list:{}\n'.format(label_col, wrong_label))
+            else:
+                #self.summary['label_checker'] += '\nlabel column element check ok!'
+                logger.debug('label column element check ok!\n')
 
 
 if __name__ == '__main__':
@@ -103,9 +114,13 @@ if __name__ == '__main__':
     checker = check_quality(df)
 
     checker.null_checker()
-    checker.id_checker(args.id_col)
-    if args.label_list is not None:
-        checker.label_checker(args.label_col, [int(i) for i in args.label_list.split(',')])
+    checker.categorical_checker()
+
+    if args.id_col is not None:
+        checker.id_checker(args.id_col)
+
+    if args.label_col is not None:
+        checker.label_checker(args.label_col, args.label_list)
 
 
 
