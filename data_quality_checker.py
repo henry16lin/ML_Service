@@ -38,7 +38,7 @@ class check_quality(object):
         null_summary = pd.DataFrame({
             'count': len(self.df),
             'null_count': self.df.isnull().sum(),
-            'null_ratio(%)': self.df.isnull().sum()/len(df)*100,
+            'null_ratio(%)': self.df.isnull().sum()/len(self.df)*100,
         })
         #self.summary['null_checker'] = null_summary
         
@@ -69,9 +69,9 @@ class check_quality(object):
         logger.debug('='*20 + 'categorical checker checker' + '='*20)
         col_name, class_cnt = [],[]
         for c in self.df.columns:
-            if str(df[c].dtypes)=='object':
+            if str(self.df[c].dtypes)=='object':
                 col_name.append(c)
-                class_cnt.append( len(set(df[c]) ))
+                class_cnt.append( len(set(self.df[c]) ))
         cnt_summary = pd.DataFrame({'column':col_name, 'class_cnt': class_cnt})
         logger.debug('categorical column class count:\n{}\n'.format(cnt_summary.to_string() ) )
         #logger.debug(pd.DataFrame(class_cnt_dict,index=[0]))
@@ -81,24 +81,22 @@ class check_quality(object):
         logger.debug('='*20 + 'label checker' + '='*20)
         # complete
         if self.df[label_col].isnull().sum()>0:
-            #self.summary['label_checker'] = '[Warning!] label column:{} should not contain Nulls'.format(label_col)
             logger.debug('[Warning!] label column:{} should not contain Nulls\n'.format(label_col))
         else:
-            #self.summary['label_checker'] = 'label column:{} has no Nulls'.format(label_col)
             logger.debug('label column:{} has no Nulls\n'.format(label_col))
         
         # element check
         if label_list is not None:
-            label_list = [int(i) for i in label_list.split(',')]
+            if isinstance(label_list, str):
+                label_list = [int(i) for i in label_list.split(',')]
+            
             wrong_label = []
             for i in set(self.df[label_col]):
                 if i not in label_list:
                     wrong_label.append(i)
             if len(wrong_label)>0:
-                #self.summary['label_checker'] += '\n[Warning!] label column:{} has elements not in label list:{}'.format(label_col, wrong_label)
                 logger.debug('[Warning!] label column:{} has elements not in label list:{}\n'.format(label_col, wrong_label))
             else:
-                #self.summary['label_checker'] += '\nlabel column element check ok!'
                 logger.debug('label column element check ok!\n')
 
 

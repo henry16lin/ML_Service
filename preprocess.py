@@ -73,7 +73,7 @@ class preprocess():
         normalLogger.debug('fill na...')
         data, na_rule = self.na_fill(data, self.na_rule, auto_fill=False) #not auto-fill when prediction
 
-        
+        '''
         normalLogger.debug('checking data dtypes...')
         for c in data.columns:
             if c in self.dtype.keys():
@@ -81,7 +81,7 @@ class preprocess():
                     print(c)
                     normalLogger.debug('-- align %s type from %s to %s' %(c,str(data[c].dtypes),str( self.dtype[c] )) )
                     data[c] = data[c].astype(str(self.dtype[c]))
-        
+        '''
         #normalLogger.debug('column type checking...')
         #data = self.mix_type_checker(data)
         
