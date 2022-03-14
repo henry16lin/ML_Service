@@ -10,14 +10,15 @@ normalLogger = logging.getLogger('normalLogger')
 
 def get_model(model_name, type, scaler=1, **kwargs):
     # type = "classification" or "regression"
-    custom_loss = CustomLoss(alpha=scaler)
+    #custom_loss = CustomLoss(alpha=scaler)
     param_grid={}
     
     if model_name == 'XGB':
         params_xgb = {
             'n_jobs': -1, 'random_state': 100, 'use_label_encoder':False,
-            'colsample_bytree':0.8, 'subsample':0.8, 
-            'importance_type':'gain', 'scale_pos_weight' :scaler}
+            'colsample_bytree':0.9, 'subsample':0.9, 
+            'importance_type':'gain', 'scale_pos_weight' :scaler
+            }
 
         if type == "classification":
             model =  XGBClassifier(eval_metric='mlogloss', **params_xgb)
@@ -28,13 +29,13 @@ def get_model(model_name, type, scaler=1, **kwargs):
             raise ValueError("type must be 'classification' or 'regression'! ")
 
         # tuning step suggestion: https://www.analyticsvidhya.com/blog/2016/03/complete-guide-parameter-tuning-xgboost-with-codes-python/
-        param_grid = {'max_depth': [3],
+        param_grid = {'max_depth': [3,4],
                       #'min_child_weight':[2,3,4],
-                      'learning_rate':[0.1, 0.5],
-                      'gamma':[0, 1],
-                      'n_estimators':[50,100],
-                      'reg_alpha':[1,3],
-                      'reg_lambda':[2,4]
+                      'learning_rate':[0.01, 0.05, 0.1],
+                      'gamma':[0],
+                      'n_estimators':[100,200],
+                      'reg_alpha':[5],
+                      'reg_lambda':[2]
                       }
     
     
@@ -60,13 +61,13 @@ def get_model(model_name, type, scaler=1, **kwargs):
             raise ValueError("type must be 'classification' or 'regression'! ")
 
         param_grid = {
-                      'n_estimators': [50,100,150],
-                      'max_depth': [5,7,9],
-                      'learning_rate':[0.1, 0.3],
-                      'min_child_samples': [10,30],
+                      'n_estimators': [100,200,300],
+                      'max_depth': [3,5],
+                      'learning_rate':[0.05, 0.1],
+                      'min_child_samples': [10,20],
                       #'min_child_weight':[1.5, 2, 3],
-                      'reg_alpha':[1,3,5],
-                      'reg_lambda':[2,4,6]
+                      'reg_alpha':[3,5],
+                      'reg_lambda':[4,6]
                       }
 
         # #defaulet
@@ -85,12 +86,12 @@ def get_model(model_name, type, scaler=1, **kwargs):
                 self.classifier = nn.Sequential(
                     nn.Linear(in_features, mid_features),
                     nn.BatchNorm1d(num_features = mid_features),
-                    nn.LeakyReLU(0.1, inplace=True),
+                    nn.LeakyReLU(negative_slope=0.1, inplace=True),
                     #nn.Dropout(p=0.3),
                     
                     nn.Linear(mid_features, mid_features),
                     nn.BatchNorm1d(num_features = mid_features),
-                    nn.LeakyReLU(0.1, inplace=True),
+                    nn.LeakyReLU(negative_slope=0.1, inplace=True),
                     
                     nn.Linear(mid_features, num_classes)
                 )
