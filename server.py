@@ -14,7 +14,7 @@ import shap
 import time
 import json
 import argparse
-from sklearn.externals import joblib
+import joblib
 from pandas import json_normalize
 
 app = Flask(__name__)
@@ -53,7 +53,6 @@ def XGB():
     except FileNotFoundError:
         normalLogger.debug('can not load json file, please check data...')
         abort(404)
-
 
     #try:
     inference_start = time.time()
@@ -106,6 +105,7 @@ def inference(data):
                 else:
                     shap_values_single = tmp_shap_values
                 shap_values.append(shap_values_single)
+        print(shap_values)
 
         normalLogger.debug('shap explainer elapsed %.4fs'%(time.time()-shap_start))
 
@@ -114,10 +114,16 @@ def inference(data):
         shap_values = []
     
     normalLogger.debug('run model prediction...')
-    pred_prob = np.round_(model.predict_proba(data_encoder),3)
-    print(pred_prob)
-    
-    return [i[1] for i in pred_prob], data_encoder.columns, shap_values
+
+    try: # classification 
+        pred_prob = np.round_(model.predict_proba(data_encoder),3)
+        print('predict probability:')
+        print(pred_prob)
+        return [i[1] for i in pred_prob], data_encoder.columns, shap_values
+
+    except: #regression
+        y_preds = model.predict(data_encoder)
+        return y_preds, data_encoder.columns, shap_values
 
 
 
@@ -253,7 +259,7 @@ if __name__ == '__main__':
         host = '0.0.0.0',
         port = args.port,
         threaded = False,
-        processes=4
+        processes=1
         #ssl_context = ('./ssl/XXX.crt', './ssl/XXX.key')
         )
     

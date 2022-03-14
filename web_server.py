@@ -11,7 +11,7 @@ import shap
 from matplotlib import pyplot as plt
 import time
 import json
-from sklearn.externals import joblib
+import joblib
 import threading
 import shutil
 from glob import glob
@@ -249,8 +249,8 @@ if __name__ == '__main__':
         debug = True,
         host = '0.0.0.0',
         port = 5566,
-        threaded = False,
-        ssl_context = ('./ssl/XXX.crt', './ssl/XXX.key')
+        threaded = False
+        #ssl_context = ('./ssl/XXX.crt', './ssl/XXX.key')
         )
     
     

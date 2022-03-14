@@ -1,0 +1,38 @@
+[
+  {
+    "PassengerId": 1,
+    "Survived": 0,
+    "Pclass": 3,
+    "Age": 22,
+    "Sex": "male",
+    "SibSp": 1,
+    "Parch": 0,
+    "Fare": 7.25,
+    "Cabin": "N",
+    "Embarked": "S"
+  },
+  {
+    "PassengerId": 2,
+    "Survived": 1,
+    "Pclass": 1,
+    "Age": 38,
+    "Sex": "female",
+    "SibSp": 1,
+    "Parch": 0,
+    "Fare": 71.2833,
+    "Cabin": "C",
+    "Embarked": "C"
+  },
+  {
+    "PassengerId": 3,
+    "Survived": 1,
+    "Pclass": 3,
+    "Age": 26,
+    "Sex": "female",
+    "SibSp": 0,
+    "Parch": 0,
+    "Fare": 7.925,
+    "Cabin": "N",
+    "Embarked": "S"
+  }
+]
