@@ -1,34 +1,12 @@
 import logging
 import argparse
 import pandas as pd
+import util
+
 pd.set_option('display.max_rows', 500)
 
-def get_logger(loggerName, level, filename):
-    levels = {
-        'debug': logging.DEBUG,
-        'info': logging.INFO,
-        'warning': logging.WARNING,
-        'error': logging.ERROR,
-        'critical': logging.CRITICAL
-    }
-    level = levels[level]
 
-    logger = logging.getLogger(loggerName)
-    logger.setLevel(level)
-
-    formatter = logging.Formatter('%(asctime)s  %(levelname).8s  %(message)s')
-    file_handler = logging.FileHandler(filename, mode = 'w') #create new file
-    file_handler.setFormatter(formatter)
-    stream_handler = logging.StreamHandler()
-    stream_handler.setFormatter(formatter)
-
-    logger.addHandler(file_handler)
-    logger.addHandler(stream_handler)
-
-    return logger
-
-logger = get_logger('logger', 'debug', 'CheckerLogger.log')
-
+logger = util.get_logger('logger', 'debug', './logs/CheckerLogger.%Y-%m-%d.log')
 
 class check_quality(object):
     def __init__(self, df):
@@ -38,18 +16,18 @@ class check_quality(object):
         null_summary = pd.DataFrame({
             'count': len(self.df),
             'null_count': self.df.isnull().sum(),
-            'null_ratio(%)': self.df.isnull().sum()/len(self.df)*100,
+            'null_ratio(%)': self.df.isnull().sum() / len(self.df) * 100,
         })
         #self.summary['null_checker'] = null_summary
         
-        logger.debug('='*20 + 'null checker' + '='*20)
+        logger.debug('=' * 20 + 'null checker' + '=' * 20)
         logger.debug('null summary:\n{}\n'.format(null_summary.to_string()))
         
     
     def id_checker(self, id_col): #id column should be unique and complete
-        logger.debug('='*20 + 'id checker' + '='*20)
+        logger.debug('=' * 20 + 'id checker' + '=' * 20)
         # complete
-        if self.df[id_col].isnull().sum()>0:
+        if self.df[id_col].isnull().sum() > 0:
             #self.summary['id_checker'] = '[Warning!] id column:{} should not contain Nulls\n'.format(id_col)
             logger.debug('[Warning!] id column:{} should not contain Nulls'.format(id_col))
         else:
@@ -66,19 +44,19 @@ class check_quality(object):
             logger.debug('id column:{} is unique\n'.format(id_col))
             
     def categorical_checker(self):
-        logger.debug('='*20 + 'categorical checker checker' + '='*20)
+        logger.debug('=' * 20 + 'categorical checker checker' + '=' * 20)
         col_name, class_cnt = [],[]
         for c in self.df.columns:
             if str(self.df[c].dtypes)=='object':
                 col_name.append(c)
                 class_cnt.append( len(set(self.df[c]) ))
         cnt_summary = pd.DataFrame({'column':col_name, 'class_cnt': class_cnt})
-        logger.debug('categorical column class count:\n{}\n'.format(cnt_summary.to_string() ) )
+        logger.debug('categorical column class count:\n{}\n'.format(cnt_summary.to_string()))
         #logger.debug(pd.DataFrame(class_cnt_dict,index=[0]))
 
         
     def label_checker(self, label_col, label_list=None):
-        logger.debug('='*20 + 'label checker' + '='*20)
+        logger.debug('=' * 20 + 'label checker' + '=' * 20)
         # complete
         if self.df[label_col].isnull().sum()>0:
             logger.debug('[Warning!] label column:{} should not contain Nulls\n'.format(label_col))
@@ -94,7 +72,7 @@ class check_quality(object):
             for i in set(self.df[label_col]):
                 if i not in label_list:
                     wrong_label.append(i)
-            if len(wrong_label)>0:
+            if len(wrong_label) > 0:
                 logger.debug('[Warning!] label column:{} has elements not in label list:{}\n'.format(label_col, wrong_label))
             else:
                 logger.debug('label column element check ok!\n')

@@ -7,7 +7,6 @@ import argparse
 import threading
 
 
-
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.integer):
@@ -21,7 +20,7 @@ class NumpyEncoder(json.JSONEncoder):
 
 def sent_request(args):
             
-    url = server_url + '/' + args.model
+    url = server_url + '/' + 'predict'
     begin = time.time()
     
     #json_data = json.dumps(data.to_dict('list'),cls=NumpyEncoder)
@@ -35,36 +34,36 @@ def sent_request(args):
     print('elapse %.4f s'%(end-begin))
     
     print(response_dict['pred_prob'])
-    #print('receive the model result:')
-    #print(response_dict)
 
-    for i in range(len(response_dict['shap_values'])):
-        print('shap explain for {} pridict result:'.format(i))
-        shap_values_np = np.array(response_dict['shap_values'][i])
+    if len(response_dict['shap_values']) > 0:
+        for i in range(len(response_dict['shap_values'])):  # 一次解釋多筆資料
+            print('shap explain for {} pridict result:'.format(i))
+            shap_values_np = np.array(response_dict['shap_values'][i])
+            shap_values_np = np.squeeze(shap_values_np)
 
-        postive_feature_ind = list(np.where(shap_values_np>0)[0])
-        negative_feature_ind = list(np.where(shap_values_np<0)[0])
+            postive_feature_ind = np.where(shap_values_np>0)[0].tolist()
+            negative_feature_ind = np.where(shap_values_np<0)[0].tolist()
 
-        feature_names_np = np.array(response_dict['feature_names'])
-        positive_feature_np = feature_names_np[postive_feature_ind]
-        negative_feature_np = feature_names_np[negative_feature_ind]
+            feature_names_np = np.array(response_dict['feature_names'])
+            positive_feature_np = feature_names_np[postive_feature_ind]
+            negative_feature_np = feature_names_np[negative_feature_ind]
 
-        positive_shap_np = shap_values_np[postive_feature_ind]
-        negative_shap_np = shap_values_np[negative_feature_ind]
+            positive_shap_np = shap_values_np[postive_feature_ind]
+            negative_shap_np = shap_values_np[negative_feature_ind]
 
-        positive_sort_index = np.argsort(-positive_shap_np)
-        negative_sort_index = np.argsort(negative_shap_np)
+            positive_sort_index = np.argsort(-positive_shap_np)
+            negative_sort_index = np.argsort(negative_shap_np)
+            
+            print('positive factors:')
+            print( positive_feature_np[positive_sort_index])
+            print(positive_shap_np[positive_sort_index])
+
+            print('\nnegative factors:')
+            print( negative_feature_np[negative_sort_index])
+            print(negative_shap_np[negative_sort_index])
+            print('='*50)
+
         
-        print('positive factors:')
-        print( positive_feature_np[positive_sort_index] )
-        print(positive_shap_np[positive_sort_index])
-
-        print('\nnegative factors:')
-        print( negative_feature_np[negative_sort_index])
-        print(negative_shap_np[negative_sort_index])
-        print('='*50)
-
-    
     
 
 def multi_send(args, thread, times):
@@ -82,7 +81,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'a python client test')
     parser.add_argument('--data_dir', type=str, help='path to data')
     parser.add_argument('--port', default='5566', help='port')
-    parser.add_argument('--model', type=str, default='XGB', help='API name')
     parser.add_argument('--thread', type=int, default=1, help='how many thread used to send request')
     parser.add_argument('--times', type=int, default=1, help='request times in each thread')
     args = parser.parse_args()

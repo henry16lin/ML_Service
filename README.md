@@ -10,28 +10,24 @@ pip install scikit-learn shap
 optional arguments:
   -h, --help             show this help message and exit
   --data_dir DATA_DIR    path to data
-  --train                whether to train model
   --type TYPE            classification or regression
   --encoder ENCODER      categorical feature encoder, one of: label, onehot, target
   --algorithm ALGORITHM  which model you want to train(XGB or LGB or nn)
   --y_col Y_COL          column name of predict target
-  --model MODEL          path to load model(for prediction)
+  --output_dir OUTPUT_DIR          path to output model
   --na_rule NA_RULE      (if you have domain rule)path to na rule(json)
   
 ```
 ## Training example:  
-python main.py --train --y_col Survived --data_dir ./data/titanic.csv --exclude_col 'PassengerId'  
+python train.py --y_col Survived --data_dir ./data/titanic.csv --output_dir ./models/titanic --exclude_col 'PassengerId'  
   
-## Prediction example: 
-python main.py  
-then it will ask you data path(.csv) for prediction.  
-
+  
 ## REST API
 **server:**  
-python server.py
+python server.py --model_path ./models/titanic --shap_flag
 
 **client:**  
-python python_client.py --data_dir ./data/titanic_client_test.csv 
+python python_client.py --data_dir ./data/titanic_client_test.json 
 
 ## web service:  
 python web_server.py  
