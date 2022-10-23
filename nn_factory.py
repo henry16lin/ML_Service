@@ -11,24 +11,16 @@ from sklearn.preprocessing import Normalizer
 import numpy as np
 
 
-
-cwd = os.getcwd()
-model_save_path = os.path.join(cwd,'checkpoint')
-
-if not os.path.exists(model_save_path):
-    os.makedirs(model_save_path)
-
-
 class nn_factory():
     
-    def __init__(self, model, device, X_df, y_df, batch_size):
+    def __init__(self, model, device, X_df, y_df, batch_size, model_save_path):
         
         self.model = model.to(device)
         self.device = device
+        self.model_save_path = model_save_path
         
         # split validation set
         X_train, X_val, y_train, y_val = train_test_split(X_df, y_df, test_size=0.2, random_state=33)
-        
         
         self.X_train_tensor = torch.from_numpy(np.array(X_train)).to(self.device)
         self.y_train_tensor = torch.from_numpy(np.array(y_train)).to(self.device)
@@ -46,8 +38,7 @@ class nn_factory():
         cat = list(set(y_train))
         nSamples = [sum(y_train==c) for c in cat]
         self.class_weights = [1 - (x / sum(nSamples)) for x in nSamples]
-            
-
+    
 
     def fit(self, epoch):
         
@@ -59,14 +50,16 @@ class nn_factory():
         
         for ep in range(1, epoch + 1):
             epoch_begin = time.time()
-            cur_train_loss,cur_train_acc = self.train(optimizer,ep)
-            cur_val_loss,cur_val_acc = self.val()
+            cur_train_loss, cur_train_acc = self.train(optimizer, ep)
+            cur_val_loss, cur_val_acc = self.val()
             
-            print('elapse:%.2fs \n'%(time.time()-epoch_begin))
+            print('elapse: %.2fs \n' % (time.time() - epoch_begin))
     
             if cur_val_loss<=val_loss:
                 print('improve validataion loss, saving model...\n')
-                torch.save(self.model.state_dict(), os.path.join(model_save_path,'epoch-%d-val_loss%.3f-val_acc%.3f.pt' %(ep,cur_val_loss,cur_val_acc) ))
+                torch.save(self.model.state_dict(),
+                           os.path.join(self.model_save_path, 'epoch-%d-val_loss%.3f-val_acc%.3f.pt'
+                           % (ep, cur_val_loss, cur_val_acc)))
                 
                 val_loss = cur_val_loss
                 val_acc = cur_val_acc
@@ -76,17 +69,14 @@ class nn_factory():
             val_loss_hist.append(cur_val_loss)
             val_acc_hist.append(cur_val_acc)
 
-
         #save final model
-        
         # fast but also need to save out dimension of each layer or Net class(but my net class also need dimension of each layer to initialize)
         state = {
                 'epoch': epoch,
                 'state_dict': self.model.state_dict(),
                 'optimizer': optimizer.state_dict()
                 }
-        torch.save(state, os.path.join(model_save_path,'last_model.pt'))
-        
+        torch.save(state, os.path.join(self.model_save_path, 'last_model.pt'))
         
          ### graph train hist ###
         import matplotlib.pyplot as plt
@@ -95,23 +85,21 @@ class nn_factory():
         fig = plt.figure()
         plt.plot(train_loss_hist)
         plt.plot(val_loss_hist)
-        plt.legend(['train loss','val loss'],loc='best')
-        plt.savefig(os.path.join(model_save_path,'loss.jpg'))
+        plt.legend(['train loss','val loss'], loc='best')
+        plt.savefig(os.path.join(self.model_save_path, 'loss.jpg'))
         plt.close(fig)
         fig = plt.figure()
         plt.plot(train_acc_hist)
         plt.plot(val_acc_hist)
-        plt.legend(['train acc','val acc'],loc='best')
-        plt.savefig(os.path.join(model_save_path,'acc.jpg'))
+        plt.legend(['train acc', 'val acc'], loc='best')
+        plt.savefig(os.path.join(self.model_save_path, 'acc.jpg'))
         plt.close(fig)
 
-        
-        
-    def predict_prob(self,df):
+    
+    def predict_proba(self, df):
         
         #np_data = self.transformer.transform(df)
         tensor_data = torch.from_numpy(np.array(df)).to(self.device)
-        
 
         with torch.no_grad():
             log_prob = F.log_softmax(self.model(tensor_data.float()))
@@ -120,13 +108,11 @@ class nn_factory():
         return pred_prob
     
     
-    def predict(self,df):
-        pred_prob = self.predict_prob(df)
-        pred_ind = np.argmax(pred_prob,axis=1)
+    def predict(self, df):
+        pred_prob = self.predict_proba(df)
+        pred_ind = np.argmax(pred_prob, axis=1)
         
         return pred_ind
-    
-    
     
     
     def train(self, optimizer, epoch):
@@ -134,13 +120,12 @@ class nn_factory():
         device = self.device
         train_loader = self.train_loader
         
-        
-        print('[epoch %d]train on %d data......'%(epoch,len(train_loader.dataset)))
+        print('[epoch %d]train on %d data......' % (epoch,len(train_loader.dataset)))
         train_loss = 0
         correct = 0
         self.model.train()
-        for batch_ind,(data,target) in enumerate(tqdm(train_loader)):
-            data,target = data.to(device),target.to(device)
+        for batch_ind, (data, target) in enumerate(tqdm(train_loader)):
+            data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
             output = self.model(data.float())
             
@@ -164,21 +149,17 @@ class nn_factory():
         acc = correct/len(train_loader.dataset)
     
         print('training set: average loss:%.4f, acc:%d/%d(%.3f%%)' %(train_loss,
-              correct, len(train_loader.dataset), 100*acc))
+              correct, len(train_loader.dataset), 100 * acc))
     
         return train_loss, acc
     
     
-    
-    
     def val(self):
-        
         model = self.model
         device = self.device
         val_loader = self.val_loader
         
-        
-        print('validation on %d data......'%len(val_loader.dataset))
+        print('validation on %d data......' % len(val_loader.dataset))
         model.eval()
         val_loss = 0
         correct = 0
@@ -199,9 +180,8 @@ class nn_factory():
         print('Val set:Average loss:%.4f, acc:%d/%d(%.3f%%)' %(val_loss,
               correct, len(val_loader.dataset), 100.*correct/len(val_loader.dataset)))
     
-        return val_loss, correct/len(val_loader.dataset)
-            
-    
+        return val_loss, correct / len(val_loader.dataset)
+        
 
 # since i don't want boosting user need to install pytorch so i didn't put this loss fn in loss.py
 class FocalLoss(nn.Module):
@@ -212,6 +192,6 @@ class FocalLoss(nn.Module):
         self.nll_loss = nn.NLLLoss(weight)
         
     def forward(self, inputs, targets):      
-        return self.nll_loss( (1-F.softmax(inputs,1))**self.gamma * F.log_softmax(inputs,1),targets )
+        return self.nll_loss( (1 - F.softmax(inputs, 1))**self.gamma * F.log_softmax(inputs, 1), targets )
     
     
