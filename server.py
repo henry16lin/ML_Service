@@ -39,7 +39,7 @@ def predict():
         abort(404)
 
     inference_start = time.time()
-    pred_prob, col_names, shap_values = inference(data)
+    pred_prob, col_names, shap_values = inference(data, args.shap_flag)
     normalLogger.info('finish inference, elapsed %.4fs (preprocess+shap+prediction)' % (time.time() - inference_start))
     
     #create result dict and transform to json format
