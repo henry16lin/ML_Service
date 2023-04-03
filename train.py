@@ -62,9 +62,9 @@ def train(args):
     if args.algorithm == 'nn':
         # note: target is for target encoder and nn to get output class count.
         #       if you don't use target encoder and algorithm is not nn, then target is not matter 
-        X_train_encoder = preprocessor.fit_transform(X_train, auto_fill = True, target = y_train)
+        X_train_encoder = preprocessor.fit_transform(X_train, auto_fill=True, target=y_train)
     else:
-        X_train_encoder = preprocessor.fit_transform(X_train, auto_fill = False, target = y_train)
+        X_train_encoder = preprocessor.fit_transform(X_train, auto_fill=False, target=y_train)
     
 
     # save preprocessor to pickle
@@ -83,7 +83,7 @@ def train(args):
                                   scaler=scaler, 
                                   in_features=len(X_train.columns),
                                   num_classes=len(set(y_train)),
-                                  mid_features=256)
+                                  mid_features=128)
 
     normalLogger.debug('getting model: ')
     normalLogger.debug(model)

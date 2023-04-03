@@ -77,7 +77,7 @@ def get_prob_plot(y_true, pred_prob, cat, save_path=None):
     plt.legend(['larger than threshold', 'less than threshold'])
     plt.subplot(1, 2, 2)
     sns.boxplot(data=result_df, x='cat', y='prob').set(
-        xlabel='whether future 14d donation larger than threshold'
+        xlabel='label'
     )
     if save_path:
         plt.savefig(os.path.join(save_path, "%s_prob.png" % cat))

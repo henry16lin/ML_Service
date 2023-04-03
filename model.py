@@ -1,6 +1,6 @@
 import logging
 from xgboost import XGBClassifier, XGBRegressor
-from lightgbm import LGBMClassifier, LGBMRegressor
+#from lightgbm import LGBMClassifier, LGBMRegressor
 
 from loss import CustomLoss
 
@@ -86,12 +86,14 @@ def get_model(model_name, type, scaler=1, **kwargs):
                 self.classifier = nn.Sequential(
                     nn.Linear(in_features, mid_features),
                     nn.BatchNorm1d(num_features = mid_features),
-                    nn.LeakyReLU(negative_slope=0.1, inplace=True),
-                    #nn.Dropout(p=0.3),
+                    nn.ELU(inplace=True),
+                    # nn.LeakyReLU(negative_slope=0.1, inplace=True),
+                    # nn.Dropout(p=0.3),
                     
                     nn.Linear(mid_features, mid_features),
                     nn.BatchNorm1d(num_features = mid_features),
-                    nn.LeakyReLU(negative_slope=0.1, inplace=True),
+                    #nn.LeakyReLU(negative_slope=0.1, inplace=True),
+                    nn.ELU(inplace=True),
                     
                     nn.Linear(mid_features, num_classes)
                 )
